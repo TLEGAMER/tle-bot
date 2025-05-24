@@ -8,21 +8,25 @@ from threading import Thread
 # == ✅ START: Keep-alive server ==
 app = Flask('')
 
+
 @app.route('/')
 def home():
     return "✅ Bot is alive!"
 
+
 def run():
     app.run(host='0.0.0.0', port=8080)
+
 
 def keep_alive():
     t = Thread(target=run)
     t.start()
+
+
 # == ✅ END: Keep-alive server ==
 
-
 # == 🔐 ใช้ Environment Variable ==
-TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+TOKEN = os.getenv("TOKEN")
 VOICE_CHANNEL_ID = 1375227595741855825
 TEXT_CHANNEL_ID = 1375767832234823740
 
@@ -32,7 +36,7 @@ intents.voice_states = True
 intents.guilds = True
 intents.members = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="SS!", intents=intents)
 
 voice_client = None
 text_channel = None
@@ -75,6 +79,11 @@ async def connect_to_voice():
 async def send_status():
     if text_channel:
         await text_channel.send("I'm online Kub 👋")
+
+
+@bot.command(name="test")
+async def test_command(ctx):
+    await ctx.send("👋 I'm awake and ready!")
 
 
 @bot.event
