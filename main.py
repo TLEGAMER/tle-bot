@@ -2,8 +2,27 @@ import discord
 from discord.ext import tasks, commands
 import asyncio
 import os
+from flask import Flask
+from threading import Thread
 
-TOKEN = os.getenv("DISCORD_BOT_TOKEN")  # 👉 ดึงจาก environment variable
+# == ✅ START: Keep-alive server ==
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "✅ Bot is alive!"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+# == ✅ END: Keep-alive server ==
+
+
+# == 🔐 ใช้ Environment Variable ==
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 VOICE_CHANNEL_ID = 1375227595741855825
 TEXT_CHANNEL_ID = 1375767832234823740
 
@@ -67,4 +86,6 @@ async def on_voice_state_update(member, before, after):
             await connect_to_voice()
 
 
+# ✅ เรียก keep_alive ก่อน run bot
+keep_alive()
 bot.run(TOKEN)
