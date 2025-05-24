@@ -1,10 +1,11 @@
 import discord
 from discord.ext import tasks, commands
 import asyncio
+import os
 
-TOKEN = "MTM3MTU4MDY0NjE1MzEzMDAyNA.G-4Oub.DugrMs_nH_1UOti6d4j5r2vKnmdbaSaYOLcENs"  # 🔁 ใส่โทเคนบอทคุณตรงนี้
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")  # 👉 ดึงจาก environment variable
 VOICE_CHANNEL_ID = 1375227595741855825
-TEXT_CHANNEL_ID = 1375767832234823740  # 🔔 ส่งข้อความแจ้งเตือนที่นี่
+TEXT_CHANNEL_ID = 1375767832234823740
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -21,10 +22,9 @@ text_channel = None
 @bot.event
 async def on_ready():
     global text_channel
-    print(f"Logged in as {bot.user}")
+    print(f"✅ Logged in as {bot.user}")
     await connect_to_voice()
 
-    # ค้นหา text channel จาก ID
     for guild in bot.guilds:
         text_channel = guild.get_channel(TEXT_CHANNEL_ID)
         if text_channel:
@@ -42,26 +42,27 @@ async def connect_to_voice():
         channel = guild.get_channel(VOICE_CHANNEL_ID)
         if channel and isinstance(channel, discord.VoiceChannel):
             try:
-                voice_client = await channel.connect(reconnect=True)
-                print(f"Connected to voice channel: {channel.name}")
+                if bot.voice_clients:
+                    return  # already connected
+                voice_client = await channel.connect()
+                print(f"🎧 Connected to voice channel: {channel.name}")
             except discord.ClientException:
-                print("Already connected.")
+                print("⚠️ Already connected.")
             except Exception as e:
-                print(f"Failed to connect: {e}")
+                print(f"❌ Failed to connect: {e}")
 
 
 @tasks.loop(minutes=30)
 async def send_status():
     if text_channel:
-        await text_channel.send("I'm online Kub")
+        await text_channel.send("I'm online Kub 👋")
 
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    global voice_client
     if member.id == bot.user.id:
-        if after.channel is None:  # หลุดจากห้อง
-            print("Bot was disconnected, reconnecting...")
+        if after.channel is None:
+            print("❌ Bot disconnected, reconnecting...")
             await asyncio.sleep(5)
             await connect_to_voice()
 
