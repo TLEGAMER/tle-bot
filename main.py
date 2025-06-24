@@ -1,100 +1,51 @@
-import discord
-from discord.ext import tasks, commands
-import asyncio
 import os
-from flask import Flask
-from threading import Thread
+import discord
+import asyncio
 
-# == ✅ START: Keep-alive server ==
-app = Flask('')
-
-
-@app.route('/')
-def home():
-    return "✅ Bot is alive!"
-
-
-def run():
-    app.run(host='0.0.0.0', port=8080)
-
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
-
-
-# == ✅ END: Keep-alive server ==
-
-# == 🔐 ใช้ Environment Variable ==
-TOKEN = os.getenv("TOKEN")
 VOICE_CHANNEL_ID = 1375227595741855825
 TEXT_CHANNEL_ID = 1375767832234823740
 
-intents = discord.Intents.default()
-intents.message_content = True
-intents.voice_states = True
-intents.guilds = True
-intents.members = True
+# ดึง Tokens จาก environment variable (ใช้ , คั่น)
+TOKENS = os.getenv("TOKENS", "").split(",")
 
-bot = commands.Bot(command_prefix="SS!", intents=intents)
+clients = []
 
-voice_client = None
-text_channel = None
+# ฟังก์ชันสร้างและรัน client
+async def start_bot(token):
+    class MyClient(discord.Client):
+        async def on_ready(self):
+            print(f'✅ Logged in as {self.user} ({self.user.id})')
 
+            # เข้าห้องเสียง
+            voice_channel = self.get_channel(VOICE_CHANNEL_ID)
+            if voice_channel and isinstance(voice_channel, discord.VoiceChannel):
+                try:
+                    await voice_channel.connect()
+                    print(f'{self.user} joined voice channel.')
+                except discord.ClientException:
+                    print(f'{self.user} already connected or error.')
 
-@bot.event
-async def on_ready():
-    global text_channel
-    print(f"✅ Logged in as {bot.user}")
-    await connect_to_voice()
+            # เริ่ม loop สำหรับ ping ทุก 1 ชั่วโมง
+            asyncio.create_task(self.ping_loop())
 
-    for guild in bot.guilds:
-        text_channel = guild.get_channel(TEXT_CHANNEL_ID)
-        if text_channel:
-            break
+        async def ping_loop(self):
+            await self.wait_until_ready()
+            channel = self.get_channel(TEXT_CHANNEL_ID)
+            while not self.is_closed():
+                try:
+                    await channel.send(f'{self.user.mention} is alive ✅')
+                except Exception as e:
+                    print(f'Error sending message: {e}')
+                await asyncio.sleep(3600)
 
-    if text_channel:
-        send_status.start()
-    else:
-        print("❌ ไม่พบ text channel ที่กำหนด")
+    intents = discord.Intents.default()
+    intents.message_content = True
+    client = MyClient(intents=intents)
+    clients.append(client)
+    await client.start(token.strip())
 
+# เรียกใช้บอททุกตัวพร้อมกัน
+async def main():
+    await asyncio.gather(*(start_bot(token) for token in TOKENS if token.strip()))
 
-async def connect_to_voice():
-    global voice_client
-    for guild in bot.guilds:
-        channel = guild.get_channel(VOICE_CHANNEL_ID)
-        if channel and isinstance(channel, discord.VoiceChannel):
-            try:
-                if bot.voice_clients:
-                    return  # already connected
-                voice_client = await channel.connect()
-                print(f"🎧 Connected to voice channel: {channel.name}")
-            except discord.ClientException:
-                print("⚠️ Already connected.")
-            except Exception as e:
-                print(f"❌ Failed to connect: {e}")
-
-
-@tasks.loop(minutes=30)
-async def send_status():
-    if text_channel:
-        await text_channel.send("I'm online Kub 👋")
-
-
-@bot.command(name="test")
-async def test_command(ctx):
-    await ctx.send("👋 I'm awake and ready!")
-
-
-@bot.event
-async def on_voice_state_update(member, before, after):
-    if member.id == bot.user.id:
-        if after.channel is None:
-            print("❌ Bot disconnected, reconnecting...")
-            await asyncio.sleep(5)
-            await connect_to_voice()
-
-
-# ✅ เรียก keep_alive ก่อน run bot
-keep_alive()
-bot.run(TOKEN)
+asyncio.run(main())
